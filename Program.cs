@@ -2,9 +2,11 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using SerpApi;
 
 var builder = Host.CreateApplicationBuilder(args);
+builder.Configuration.AddUserSecrets<Program>(optional: true);
 builder.Logging.SetMinimumLevel(LogLevel.Warning);
 
 // SerpApi: IHttpClientFactory ile yönetilen typed client
