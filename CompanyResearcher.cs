@@ -8,7 +8,7 @@ public sealed class CompanyResearcher(SerpApiClient serp, OllamaClient ollama)
 {
     readonly Dictionary<string, string> _cache = new();
 
-    // Kişisel e-posta adreslerinde firma araştırması yapmıyoruz
+    // No company research for personal email addresses
     static readonly HashSet<string> FreeMailDomains = new(StringComparer.OrdinalIgnoreCase)
     {
         "gmail.com", "googlemail.com", "hotmail.com", "outlook.com", "live.com",
@@ -16,12 +16,12 @@ public sealed class CompanyResearcher(SerpApiClient serp, OllamaClient ollama)
     };
 
     const string SummaryPrompt = """
-        Bir şirketin ne iş yaptığını 2 kısa cümleyle özetle.
-        Kurallar:
-        - SADECE verilen arama sonuçlarındaki bilgileri kullan.
-        - Arama sonuçlarında açıkça yazmayan hiçbir iddiada bulunma (dolandırıcılık, phishing, şikâyet vb.).
-        - Sonuçlar yetersizse sadece "Arama sonuçları yeterli bilgi içermiyor." yaz.
-        - Yalnızca Türkçe yaz; başka dil veya alfabe kullanma.
+        Summarize what a company does in 2 short sentences.
+        Rules:
+        - Use ONLY the information in the search results provided.
+        - Make no claim the search results don't explicitly state (fraud, phishing, complaints, etc.).
+        - If the results are insufficient, write only "The search results don't contain enough information."
+        - Write in English only; never use another language or alphabet.
         """;
 
     public static string? GetCompanyDomain(MimeMessage message)
@@ -34,7 +34,7 @@ public sealed class CompanyResearcher(SerpApiClient serp, OllamaClient ollama)
         return FreeMailDomains.Contains(domain) ? null : domain;
     }
 
-    // trx.mail2.disneyplus.com -> disneyplus.com, info.firma.com.tr -> firma.com.tr
+    // trx.mail2.disneyplus.com -> disneyplus.com, info.company.com.tr -> company.com.tr
     static string ToBaseDomain(string host)
     {
         var parts = host.Split('.');
@@ -56,28 +56,28 @@ public sealed class CompanyResearcher(SerpApiClient serp, OllamaClient ollama)
         {
             var found = await SearchAsync(domain, ct);
             summary = string.IsNullOrWhiteSpace(found)
-                ? "Arama sonucu bulunamadı."
-                : await ollama.ChatAsync(SummaryPrompt, $"Alan adı: {domain}\n\nArama sonuçları:\n{found}", ct: ct);
+                ? "No search results found."
+                : await ollama.ChatAsync(SummaryPrompt, $"Domain: {domain}\n\nSearch results:\n{found}", ct: ct);
         }
         catch (SerpApiKeyException)
         {
-            summary = "(SerpApi anahtarı geçersiz. SERPAPI_KEY değerini kontrol et.)";
+            summary = "(Invalid SerpApi key. Check SERPAPI_KEY.)";
         }
         catch (SerpApiHttpException ex) when (ex.StatusCode == 429)
         {
-            summary = "(SerpApi arama kotası doldu ya da istek sınırına ulaşıldı.)";
+            summary = "(SerpApi quota or rate limit reached.)";
         }
         catch (SerpApiHttpException ex)
         {
-            summary = $"(SerpApi HTTP {ex.StatusCode} hatası: {ex.Message})";
+            summary = $"(SerpApi HTTP {ex.StatusCode} error: {ex.Message})";
         }
         catch (SerpApiTimeoutException)
         {
-            summary = "(SerpApi isteği zaman aşımına uğradı.)";
+            summary = "(SerpApi request timed out.)";
         }
         catch (SerpApiException ex)
         {
-            summary = $"(Şirket araştırması yapılamadı: {ex.Message})";
+            summary = $"(Company research failed: {ex.Message})";
         }
 
         _cache[domain] = summary;
